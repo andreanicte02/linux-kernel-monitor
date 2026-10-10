@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go vet ./...
+      - run: go test -race ./...
+
+  kernel-module:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install headers for the runner's kernel
+        run: sudo apt-get update -q && sudo apt-get install -y -q linux-headers-$(uname -r)
+      - name: Build, load, test and unload kmon.ko
+        run: scripts/test-module.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: snapshot
+          path: web/snapshot.json

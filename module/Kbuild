@@ -1,0 +1,2 @@
+obj-m := kmon.o
+kmon-y := kmon_main.o kmon_json.o kmon_procs.o kmon_mem.o kmon_states.o

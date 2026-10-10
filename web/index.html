@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Linux Kernel Monitor</title>
+  <meta name="description" content="A Linux kernel module in C that exposes processes and memory as JSON in /proc, with a Go API and a live dashboard.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="wrap hero">
+    <p class="eyebrow">C kernel module · Go · /proc</p>
+    <h1>Linux Kernel Monitor</h1>
+    <p class="byline">by <a href="https://github.com/tikiram">Tikiram Samaneb Ruiz Manuel</a></p>
+    <p class="lede">
+      A loadable kernel module walks the kernel's own task list and memory counters and publishes them as JSON
+      files in <code>/proc</code>. A small Go server turns them into an API, and this page draws them.
+    </p>
+    <p class="links">
+      <a class="btn" href="https://github.com/andreanicte02/linux-kernel-monitor">View source</a>
+      <a class="btn ghost" href="#how">How it works</a>
+    </p>
+    <div class="source" id="source"><span class="dot"></span><span id="sourceText">Loading…</span></div>
+  </header>
+
+  <main class="wrap">
+    <section class="tiles" aria-label="Summary">
+      <div class="tile mem">
+        <p class="tlabel">Memory in use</p>
+        <p class="hero-num" id="memPct">–</p>
+        <div class="meter" id="memMeter" data-tip=""><div class="fill" id="memFill"></div></div>
+        <p class="sub" id="memSub"></p>
+      </div>
+      <div class="tile">
+        <p class="tlabel">Processes</p>
+        <p class="hero-num" id="procTotal">–</p>
+        <p class="sub" id="procSub"></p>
+      </div>
+      <div class="tile states">
+        <p class="tlabel">By state</p>
+        <dl id="states"></dl>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Top memory users</h2>
+      <p class="hint">Resident memory (RSS) per process. Kernel threads use none.</p>
+      <div class="bars" id="topMem"></div>
+    </section>
+
+    <section class="card">
+      <div class="tablehead">
+        <h2>Process tree</h2>
+        <div class="controls">
+          <input type="search" id="search" placeholder="Filter by name or PID" aria-label="Filter processes">
+          <label class="toggle"><input type="checkbox" id="showKernel"> Kernel threads</label>
+        </div>
+      </div>
+      <p class="hint" id="treeHint"></p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>PID</th><th>Name</th><th>State</th><th class="num">UID</th><th class="num">Threads</th><th class="num">Memory</th></tr></thead>
+          <tbody id="tree"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="how" id="how">
+      <h2>How it works</h2>
+      <svg class="diagram" viewBox="0 0 760 150" role="img" aria-label="Kernel module writes /proc files, the Go server reads them and serves the dashboard">
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="arrowhead"/></marker></defs>
+        <rect class="zone" x="4" y="4" width="290" height="142" rx="12"/>
+        <text class="zlabel" x="20" y="28">kernel space</text>
+        <rect class="box" x="24" y="44" width="250" height="84" rx="8"/>
+        <text class="bt" x="149" y="74">kmon.ko</text>
+        <text class="bs" x="149" y="96">for_each_process · si_meminfo</text>
+        <text class="bs" x="149" y="114">task_state_to_char</text>
+        <line class="edge" x1="276" y1="86" x2="330" y2="86" marker-end="url(#arr)"/>
+        <rect class="box" x="332" y="44" width="170" height="84" rx="8"/>
+        <text class="bt" x="417" y="74">/proc</text>
+        <text class="bs" x="417" y="96">kmon_procs</text>
+        <text class="bs" x="417" y="114">kmon_mem · kmon_states</text>
+        <line class="edge" x1="504" y1="86" x2="556" y2="86" marker-end="url(#arr)"/>
+        <rect class="box" x="558" y="44" width="196" height="84" rx="8"/>
+        <text class="bt" x="656" y="74">Go server</text>
+        <text class="bs" x="656" y="96">GET /api/snapshot</text>
+        <text class="bs" x="656" y="114">→ this dashboard</text>
+      </svg>
+      <ol>
+        <li><strong>Kernel module (C).</strong> <code>kmon.ko</code> registers three read-only files with <code>proc_create_single()</code>. Reading one runs code inside the kernel: it walks the task list under RCU and prints JSON with every process name safely escaped.</li>
+        <li><strong>Go API.</strong> <code>kmon serve</code> reads those files and serves <code>/api/snapshot</code> plus this page, refreshing every two seconds. It is read-only by design.</li>
+        <li><strong>On GitHub.</strong> Every push, GitHub Actions compiles the module against the runner's kernel, loads it with <code>insmod</code>, checks the output, takes a snapshot and unloads it. That snapshot is what you see here — a real Linux VM, read through this module.</li>
+      </ol>
+<pre><code><span class="c"># run it live on any Linux machine with kernel headers</span>
+make -C module load
+go run ./cmd/kmon serve      <span class="c"># → http://localhost:8080</span></code></pre>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    Created by <a href="https://github.com/tikiram"><strong>Tikiram Samaneb Ruiz Manuel</strong></a>.
+    Rescued in 2026 by <a href="https://github.com/andreanicte02">@andreanicte02</a>.
+    Started in 2020 for Operating Systems 2 (USAC).
+  </footer>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
